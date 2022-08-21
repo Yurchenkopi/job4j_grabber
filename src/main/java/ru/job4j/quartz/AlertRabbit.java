@@ -20,7 +20,8 @@ public class AlertRabbit  {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public static void main(String[] args) {
-        try (Connection cn = initConnection(new Properties())) {
+        Properties pr = loadProperties("rabbit.properties");
+        try (Connection cn = initConnection(pr)) {
             JobDataMap data = new JobDataMap();
             data.put("connection", cn);
             Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
@@ -28,8 +29,6 @@ public class AlertRabbit  {
             JobDetail job = newJob(Rabbit.class)
                     .usingJobData(data)
                     .build();
-            Properties pr = new Properties();
-            loadProperties(pr, "rabbit.properties");
             SimpleScheduleBuilder times = simpleSchedule()
                     .withIntervalInSeconds(Integer.parseInt(pr.getProperty("rabbit.interval")))
                     .repeatForever();
@@ -45,41 +44,66 @@ public class AlertRabbit  {
         }
     }
 
-    public static void loadProperties(Properties properties, String filename) {
+    public static Properties loadProperties(String filename) {
+        Properties properties = new Properties();
         ClassLoader loader = AlertRabbit.class.getClassLoader();
         try (InputStream in = loader.getResourceAsStream(filename)) {
             properties.load(in);
-            if (properties.getProperty("rabbit.interval") == null) {
-                throw new NullPointerException("Cannot find \"rabbit interval\" in the properties file.");
-            }
-            String validData = properties.getProperty("rabbit.interval");
-            if (validData.isEmpty()) {
-                throw new NumberFormatException("The file parameter \"rabbit interval\" is empty.");
-            }
-            Scanner scanNum = new Scanner(validData);
-            if (!scanNum.hasNextInt()) {
-                throw new IllegalArgumentException("The rabbit interval should be a number.");
-            }
-            if (scanNum.nextInt() <= 0) {
-                throw new IllegalArgumentException("The rabbit interval number should be greater than zero.");
-            }
-        } catch (IOException | NullPointerException | IllegalArgumentException e) {
+            validate(properties);
+        } catch (IOException e) {
             e.printStackTrace();
-            System.exit(1);
+        }
+        return properties;
+    }
+
+    private static void validate(Properties pr) {
+        if (pr.getProperty("rabbit.interval") == null) {
+            throw new NullPointerException("Cannot find \"rabbit interval\" in the properties file.");
+        }
+        if (pr.getProperty("grabber.url") == null) {
+            throw new NullPointerException("Cannot find \"grabber.url\" in the properties file.");
+        }
+        if (pr.getProperty("grabber.driver") == null) {
+            throw new NullPointerException("Cannot find \"grabber.driver\" in the properties file.");
+        }
+        if (pr.getProperty("grabber.username") == null) {
+            throw new NullPointerException("Cannot find \"grabber.username\" in the properties file.");
+        }
+        if (pr.getProperty("grabber.password") == null) {
+            throw new NullPointerException("Cannot find \"grabber.password\" in the properties file.");
+        }
+        String validInterval = pr.getProperty("rabbit.interval");
+        if (validInterval.isEmpty()) {
+            throw new NumberFormatException("The file parameter \"rabbit interval\" is empty.");
+        }
+        if (pr.getProperty("grabber.url").isEmpty()) {
+            throw new NumberFormatException("The file parameter \"grabber.url\" is empty.");
+        }
+        if (pr.getProperty("grabber.driver").isEmpty()) {
+            throw new NumberFormatException("The file parameter \"grabber.driver\" is empty.");
+        }
+        if (pr.getProperty("grabber.username").isEmpty()) {
+            throw new NumberFormatException("The file parameter \"grabber.username\" is empty.");
+        }
+        if (pr.getProperty("grabber.password").isEmpty()) {
+            throw new NumberFormatException("The file parameter \"grabber.password\" is empty.");
+        }
+        Scanner scanNum = new Scanner(validInterval);
+        if (!scanNum.hasNextInt()) {
+            throw new IllegalArgumentException("The rabbit interval should be a number.");
+        }
+        if (scanNum.nextInt() <= 0) {
+            throw new IllegalArgumentException("The rabbit interval number should be greater than zero.");
         }
     }
 
     public static Connection initConnection(Properties config) throws Exception {
-        ClassLoader loader = Rabbit.class.getClassLoader();
-        try (InputStream in = loader.getResourceAsStream("rabbit.properties")) {
-            config.load(in);
-            Class.forName(config.getProperty("grabber.driver"));
-            return DriverManager.getConnection(
-                    config.getProperty("grabber.url"),
-                    config.getProperty("grabber.username"),
-                    config.getProperty("grabber.password")
-            );
-        }
+        Class.forName(config.getProperty("grabber.driver"));
+        return DriverManager.getConnection(
+                config.getProperty("grabber.url"),
+                config.getProperty("grabber.username"),
+                config.getProperty("grabber.password")
+        );
     }
 
     public static class Rabbit implements Job {
