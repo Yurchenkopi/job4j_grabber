@@ -16,17 +16,15 @@ import static org.quartz.TriggerBuilder.*;
 import static org.quartz.SimpleScheduleBuilder.*;
 
 public class AlertRabbit  {
-    private  static LocalDateTime created = LocalDateTime.now();
+
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static Connection cn;
 
     public static void main(String[] args) {
-        try {
-            initConnection();
-            Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
-            scheduler.start();
+        try (Connection cn = initConnection(new Properties())) {
             JobDataMap data = new JobDataMap();
             data.put("connection", cn);
+            Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
+            scheduler.start();
             JobDetail job = newJob(Rabbit.class)
                     .usingJobData(data)
                     .build();
@@ -42,14 +40,7 @@ public class AlertRabbit  {
             scheduler.scheduleJob(job, trigger);
             Thread.sleep(10000);
             scheduler.shutdown();
-            try (var ps = cn.prepareStatement(
-                    "INSERT INTO rabbit(created_date) VALUES (?);")) {
-                ps.setTimestamp(1, Timestamp.valueOf(created.format(FORMATTER)));
-                ps.execute();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        } catch (SchedulerException | InterruptedException se) {
+        } catch (Exception se) {
             se.printStackTrace();
         }
     }
@@ -78,19 +69,16 @@ public class AlertRabbit  {
         }
     }
 
-    public static void initConnection() {
+    public static Connection initConnection(Properties config) throws Exception {
         ClassLoader loader = Rabbit.class.getClassLoader();
         try (InputStream in = loader.getResourceAsStream("rabbit.properties")) {
-            Properties config = new Properties();
             config.load(in);
             Class.forName(config.getProperty("grabber.driver"));
-            cn = DriverManager.getConnection(
+            return DriverManager.getConnection(
                     config.getProperty("grabber.url"),
                     config.getProperty("grabber.username"),
                     config.getProperty("grabber.password")
             );
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
         }
     }
 
@@ -101,6 +89,15 @@ public class AlertRabbit  {
 
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
+            LocalDateTime created = LocalDateTime.now();
+            Connection cn = (Connection) context.getJobDetail().getJobDataMap().get("connection");
+            try (var ps = cn.prepareStatement(
+                    "INSERT INTO rabbit(created_date) VALUES (?);")) {
+                ps.setTimestamp(1, Timestamp.valueOf(created.format(FORMATTER)));
+                ps.execute();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
             System.out.println("Rabbit runs here ...");
         }
     }
