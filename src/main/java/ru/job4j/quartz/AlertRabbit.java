@@ -9,6 +9,7 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Properties;
+import java.util.Scanner;
 
 import static org.quartz.JobBuilder.*;
 import static org.quartz.TriggerBuilder.*;
@@ -57,8 +58,23 @@ public class AlertRabbit  {
         ClassLoader loader = AlertRabbit.class.getClassLoader();
         try (InputStream in = loader.getResourceAsStream(filename)) {
             properties.load(in);
-        } catch (IOException e) {
+            if (properties.getProperty("rabbit.interval") == null) {
+                throw new NullPointerException("Cannot find \"rabbit interval\" in the properties file.");
+            }
+            String validData = properties.getProperty("rabbit.interval");
+            if (validData.isEmpty()) {
+                throw new NumberFormatException("The file parameter \"rabbit interval\" is empty.");
+            }
+            Scanner scanNum = new Scanner(validData);
+            if (!scanNum.hasNextInt()) {
+                throw new IllegalArgumentException("The rabbit interval should be a number.");
+            }
+            if (scanNum.nextInt() <= 0) {
+                throw new IllegalArgumentException("The rabbit interval number should be greater than zero.");
+            }
+        } catch (IOException | NullPointerException | IllegalArgumentException e) {
             e.printStackTrace();
+            System.exit(1);
         }
     }
 
