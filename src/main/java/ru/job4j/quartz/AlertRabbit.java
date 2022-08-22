@@ -50,8 +50,9 @@ public class AlertRabbit {
         try (InputStream in = loader.getResourceAsStream(filename)) {
             properties.load(in);
             validate(properties);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             e.printStackTrace();
+            throw new IllegalArgumentException("Input data validating or properties loading error.");
         }
         return properties;
     }
