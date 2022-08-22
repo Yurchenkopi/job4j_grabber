@@ -5,7 +5,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import ru.job4j.grabber.utils.DateTimeParser;
+
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 public class HabrCareerParse {
@@ -19,10 +22,7 @@ public class HabrCareerParse {
     private String retrieveDescription(String link) throws IOException {
         Connection cn = Jsoup.connect(link);
         Document doc = cn.get();
-        return doc.select(".collapsible-description__content")
-                .stream()
-                .map(el -> new StringBuilder().append(el.select(".style-ugc").text()))
-                .collect(Collectors.joining());
+        return doc.select(".style-ugc").text();
     }
 
     public static void main(String[] args) throws IOException {
